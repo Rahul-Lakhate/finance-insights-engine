@@ -7,17 +7,30 @@ from insights import monthly_summary, top_expenses, recurring_transactions, dete
 st.set_page_config(page_title="Personal Finance Insights", layout="wide")
 st.title("📊 Personal Finance Insights Engine")
 
-# Upload section
+# File upload section
 uploaded_file = st.file_uploader("Upload your bank statement (.pdf or .csv)", type=["pdf", "csv"])
 
 if uploaded_file:
     with st.spinner("📂 Processing your statement..."):
-        df = load_statement(uploaded_file)
-        df = predict_categories(df)
+        try:
+            df = load_statement(uploaded_file)
+        except Exception as e:
+            st.error(f"❌ Failed to load file: {e}")
+            st.stop()
+
+        if df.empty or 'Description' not in df.columns or 'Amount' not in df.columns:
+            st.error("❌ File format not supported or no transactions extracted. Please upload a valid bank statement.")
+            st.stop()
+
+        try:
+            df = predict_categories(df)
+        except Exception as e:
+            st.error(f"❌ Categorization failed: {e}")
+            st.stop()
 
         st.success("✅ Transactions successfully processed!")
 
-        # Section 1: Raw Data
+        # Section 1: Raw Transactions
         st.subheader("🔍 Preview of Transactions")
         st.dataframe(df.head(10), use_container_width=True)
 
@@ -41,7 +54,7 @@ if uploaded_file:
         anomalies = detect_anomalies(df)
         st.dataframe(anomalies, use_container_width=True)
 
-        # Download categorized CSV
+        # Download button
         st.download_button(
             label="⬇️ Download Categorized CSV",
             data=df.to_csv(index=False),
@@ -49,4 +62,4 @@ if uploaded_file:
             mime="text/csv"
         )
 else:
-    st.info("Please upload a PDF or CSV bank statement to get started.")
+    st.info("Please upload a PDF or CSV bank statement to begin.")
