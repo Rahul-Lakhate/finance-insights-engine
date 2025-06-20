@@ -15,38 +15,31 @@ def extract_text_from_pdf(file_obj):
 
 
 def parse_transactions(text):
-    # Updated regex for IDFC bank statement format:
-    # Format: 01-Dec-2024 01-Dec-2024 Description Debit Credit Balance
+    # Matches: date, date, description, amount, balance
     pattern = re.compile(
-        r"(\d{2}-[A-Za-z]{3}-\d{4})\s+"              # Transaction Date
-        r"(\d{2}-[A-Za-z]{3}-\d{4})\s+"              # Value Date
-        r"(.+?)\s+"                                   # Description
-        r"((?:\d{1,3}(?:,\d{3})*|\d+)?(?:\.\d{2})?)?\s+"  # Debit (optional)
-        r"((?:\d{1,3}(?:,\d{3})*|\d+)?(?:\.\d{2})?)?\s+"  # Credit (optional)
-        r"(\d{1,3}(?:,\d{3})*(?:\.\d{2}))"                # Balance
+        r"(\d{2}-[A-Za-z]{3}-\d{4})\s+"            # Transaction Date
+        r"(\d{2}-[A-Za-z]{3}-\d{4})\s+"            # Value Date
+        r"(.+?)\s+"                                # Description
+        r"(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s+"       # Amount
+        r"(\d{1,3}(?:,\d{3})*(?:\.\d{2}))"          # Balance
     )
 
     matches = pattern.findall(text)
     data = []
 
-    for tx_date, val_date, desc, debit, credit, _balance in matches:
+    for tx_date, _, description, amount, _balance in matches:
         try:
-            if credit and credit.strip():
-                amount = float(credit.replace(",", ""))
-            elif debit and debit.strip():
-                amount = -float(debit.replace(",", ""))
-            else:
-                continue  # Skip if both debit and credit are missing
-
+            amt = float(amount.replace(",", ""))
             data.append({
                 "Date": pd.to_datetime(tx_date, format="%d-%b-%Y"),
-                "Description": desc.strip(),
-                "Amount": amount
+                "Description": description.strip(),
+                "Amount": -amt  # Treat all as debit by default
             })
         except Exception as e:
-            print(f"Skipping row due to error: {e}")
+            print(f"Skipping invalid row: {e}")
 
     return pd.DataFrame(data)
+
 
 
 def load_statement(file_input):
